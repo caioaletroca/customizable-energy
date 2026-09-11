@@ -1,0 +1,11 @@
+OxygenNotIncludedModTemplate-main/*
+!OxygenNotIncludedModTemplate-main/ModsGuide/
+OxygenNotIncludedModTemplate-main/ModsGuide/*
+!OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/
+OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/*
+!OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/CustomizableEnergy/
+!OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/CustomizableEnergy/**
+OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/CustomizableEnergy/bin/
+OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/CustomizableEnergy/obj/
+OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/CustomizableEnergy/config.json
+OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/.gitignore
