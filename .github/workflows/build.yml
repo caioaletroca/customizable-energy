@@ -41,11 +41,11 @@ jobs:
 
       - name: Restore
         shell: pwsh
-        run: dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}"
+        run: dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}"
 
       - name: Build release artifact
         shell: pwsh
-        run: dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}"
+        run: dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}"
 
       - name: Package local mod
         shell: pwsh

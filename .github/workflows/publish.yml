@@ -2,13 +2,8 @@ name: Publish Steam Workshop
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: Release version without the v prefix
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -26,19 +21,25 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      - name: Resolve release version
-        id: version
-        shell: pwsh
-        run: |
-          $version = if ('${{ github.event_name }}' -eq 'push') { '${{ github.ref_name }}'.TrimStart('v') } else { '${{ inputs.version }}' }
-          if ([string]::IsNullOrWhiteSpace($version)) { throw 'A release version is required.' }
-          "value=$version" >> $env:GITHUB_OUTPUT
+      - name: Install semantic-release
+        run: npm install --global semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/exec @semantic-release/github @semantic-release/git conventional-changelog-conventionalcommits
+
+      - name: Create semantic release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npx semantic-release
 
       - name: Validate publishing configuration
+        if: steps.release.outputs.version != ''
         shell: pwsh
         run: |
           foreach ($name in 'STEAM_WORKSHOP_ITEM_ID','STEAM_USERNAME','STEAM_CONFIG_VDF') {
@@ -49,9 +50,11 @@ jobs:
           }
 
       - uses: andriivitiv/setup-steamcmd@v1
+        if: steps.release.outputs.version != ''
         id: steamcmd
 
       - name: Download ONI assemblies
+        if: steps.release.outputs.version != ''
         id: oni
         shell: pwsh
         run: |
@@ -65,12 +68,14 @@ jobs:
           "path=$managed" >> $env:GITHUB_OUTPUT
 
       - name: Restore and build
+        if: steps.release.outputs.version != ''
         shell: pwsh
         run: |
-          dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}"
-          dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:Version="${{ steps.version.outputs.value }}"
+          dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}"
+          dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}" -p:Version="${{ steps.release.outputs.version }}"
 
       - name: Prepare Workshop content
+        if: steps.release.outputs.version != ''
         shell: pwsh
         run: |
           $content = Join-Path $env:RUNNER_TEMP 'workshop-content'
@@ -85,14 +90,8 @@ jobs:
           Set-Content -LiteralPath 'Steam\\workshop.vdf' -Value $vdf -NoNewline
 
       - name: Publish Workshop update
+        if: steps.release.outputs.version != ''
         shell: pwsh
         run: |
           & '${{ steps.steamcmd.outputs.executable }}' +login "$env:STEAM_USERNAME" +workshop_build_item "$env:GITHUB_WORKSPACE\\Steam\\workshop.vdf" +quit
 
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: |
-          $tag = "v${{ steps.version.outputs.value }}"
-          gh release create $tag --generate-notes --verify-tag
