@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      version:
+        description: Existing version to publish without creating a new release
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -34,16 +39,18 @@ jobs:
 
       - name: Create semantic release
         id: release
+        if: github.event_name != 'workflow_dispatch'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: npx semantic-release
 
-      - name: Read release version
+      - name: Resolve release version
         id: release-version
         shell: pwsh
         run: |
-          if (Test-Path -LiteralPath '.semantic-release-version') {
-            "value=$(Get-Content -LiteralPath '.semantic-release-version' -Raw)" >> $env:GITHUB_OUTPUT
+          $version = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } elseif (Test-Path -LiteralPath '.semantic-release-version') { Get-Content -LiteralPath '.semantic-release-version' -Raw }
+          if (-not [string]::IsNullOrWhiteSpace($version)) {
+            "value=$version" >> $env:GITHUB_OUTPUT
           }
 
       - name: Validate publishing configuration
