@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyTitle>Customizable Energy</AssemblyTitle>
+    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <RootNamespace>CustomizableEnergy</RootNamespace>
+    <Description>Configure the output power of Oxygen Not Included generators.</Description>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <UsesPLib>false</UsesPLib>
+    <CopyLocal>true</CopyLocal>
+    <GameManagedPath>C:\Program Files (x86)\Steam\steamapps\common\OxygenNotIncluded\OxygenNotIncluded_Data\Managed</GameManagedPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="third_party\**\*.cs" />
+    <Compile Remove="OxygenNotIncludedModTemplate-main\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp" HintPath="$(GameManagedPath)\Assembly-CSharp.dll" Private="False" />
+    <Reference Include="Assembly-CSharp-firstpass" HintPath="$(GameManagedPath)\Assembly-CSharp-firstpass.dll" Private="False" />
+    <Reference Include="0Harmony" HintPath="$(GameManagedPath)\0Harmony.dll" Private="False" />
+    <Reference Include="Newtonsoft.Json" HintPath="$(GameManagedPath)\Newtonsoft.Json.dll" Private="False" />
+    <Reference Include="UnityEngine" HintPath="$(GameManagedPath)\UnityEngine.dll" Private="False" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManagedPath)\UnityEngine.CoreModule.dll" Private="False" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(GameManagedPath)\Unity.TextMeshPro.dll" Private="False" />
+    <Reference Include="UnityEngine.UI" HintPath="$(GameManagedPath)\UnityEngine.UI.dll" Private="False" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(GameManagedPath)\UnityEngine.TextRenderingModule.dll" Private="False" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="third_party\ONIMods\PLibCore\PLibCore.csproj" />
+    <ProjectReference Include="third_party\ONIMods\PLibUI\PLibUI.csproj" />
+    <ProjectReference Include="third_party\ONIMods\PLibOptions\PLibOptions.csproj" />
+  </ItemGroup>
+</Project>
