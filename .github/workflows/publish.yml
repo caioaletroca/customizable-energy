@@ -30,7 +30,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Install semantic-release
-        run: npm install --global semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/exec @semantic-release/github @semantic-release/git conventional-changelog-conventionalcommits
+        run: npm install --global semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/exec @semantic-release/github @semantic-release/git
 
       - name: Create semantic release
         id: release
