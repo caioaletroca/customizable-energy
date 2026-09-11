@@ -13,7 +13,7 @@ Configure the output power of Oxygen Not Included generators.
 
 ## Compatibility
 
-- Oxygen Not Included build **U59-737790** or newer.
+- Oxygen Not Included build **U58-722606** or newer.
 - Base game and Spaced Out! are supported.
 - Compatible generator buildings added by other mods are discovered when ONI registers them.
 - Existing generators retain their normal behavior until you enable an override.

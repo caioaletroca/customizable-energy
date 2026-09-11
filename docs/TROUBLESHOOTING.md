@@ -8,7 +8,7 @@
 
 ## The mod is marked out of date
 
-Use a version built for your ONI game build. The current development build targets U59-737790.
+Use a version built for your ONI game build. The current development build targets U58-722606.
 
 ## A generator is missing from the options list
 
