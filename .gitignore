@@ -1,4 +1,5 @@
 OxygenNotIncludedModTemplate-main/*
+!OxygenNotIncludedModTemplate-main/
 !OxygenNotIncludedModTemplate-main/ModsGuide/
 OxygenNotIncludedModTemplate-main/ModsGuide/*
 !OxygenNotIncludedModTemplate-main/ModsGuide/ONIMods/
