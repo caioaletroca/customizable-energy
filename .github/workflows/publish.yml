@@ -94,7 +94,7 @@ jobs:
         shell: pwsh
         run: |
           $content = Join-Path $env:RUNNER_TEMP 'workshop-content'
-          $package = Join-Path $content 'CustomizableEnergy.zip'
+          $package = Join-Path $content "$(Get-Date -Format 'yyyyMMddHHmmss')_legacy.bin"
           $staging = Join-Path $env:RUNNER_TEMP 'workshop-staging'
           New-Item -ItemType Directory -Path $content,$staging -Force | Out-Null
           Copy-Item 'bin\\Release\\netstandard2.1\\CustomizableEnergy.dll' $staging
@@ -102,7 +102,9 @@ jobs:
           Copy-Item 'third_party\\ONIMods\\PLibCore\\bin\\Release\\netstandard2.1\\PLibCore.dll' $staging
           Copy-Item 'third_party\\ONIMods\\PLibUI\\bin\\Release\\netstandard2.1\\PLibUI.dll' $staging
           Copy-Item 'third_party\\ONIMods\\PLibOptions\\bin\\Release\\netstandard2.1\\PLibOptions.dll' $staging
-          Compress-Archive -Path "$staging\\*" -DestinationPath $package -Force
+          $zip = "$package.zip"
+          Compress-Archive -Path "$staging\\*" -DestinationPath $zip -Force
+          Move-Item -LiteralPath $zip -Destination $package -Force
           $vdf = Get-Content 'Steam\\workshop.vdf.template' -Raw
           $vdf = $vdf.Replace('${CONTENT_PATH}', $package.Replace('\\', '/')).Replace('${PREVIEW_PATH}', (Join-Path $env:GITHUB_WORKSPACE 'Steam\\preview.png').Replace('\\', '/')).Replace('${WORKSHOP_ITEM_ID}', $env:STEAM_WORKSHOP_ITEM_ID)
           Set-Content -LiteralPath 'Steam\\workshop.vdf' -Value $vdf -NoNewline
