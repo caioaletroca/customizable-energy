@@ -25,7 +25,7 @@
       "@semantic-release/exec",
       {
         "prepareCmd": "node -e \"const fs=require('fs'); const file='mod_info.yaml'; const text=fs.readFileSync(file,'utf8').replace(/^version:.*$/m,'version: ${nextRelease.version}'); fs.writeFileSync(file,text);\"",
-        "successCmd": "echo \"version=${nextRelease.version}\" >> $GITHUB_OUTPUT"
+        "successCmd": "node -e \"require('fs').writeFileSync('.semantic-release-version','${nextRelease.version}')\""
       }
     ],
     "@semantic-release/github",

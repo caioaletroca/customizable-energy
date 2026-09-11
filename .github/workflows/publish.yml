@@ -38,8 +38,16 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: npx semantic-release
 
+      - name: Read release version
+        id: release-version
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath '.semantic-release-version') {
+            "value=$(Get-Content -LiteralPath '.semantic-release-version' -Raw)" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Validate publishing configuration
-        if: steps.release.outputs.version != ''
+        if: steps.release-version.outputs.value != ''
         shell: pwsh
         run: |
           foreach ($name in 'STEAM_WORKSHOP_ITEM_ID','STEAM_USERNAME','STEAM_CONFIG_VDF') {
@@ -50,11 +58,11 @@ jobs:
           }
 
       - uses: andriivitiv/setup-steamcmd@v1
-        if: steps.release.outputs.version != ''
+        if: steps.release-version.outputs.value != ''
         id: steamcmd
 
       - name: Download ONI assemblies
-        if: steps.release.outputs.version != ''
+        if: steps.release-version.outputs.value != ''
         id: oni
         shell: pwsh
         run: |
@@ -68,14 +76,14 @@ jobs:
           "path=$managed" >> $env:GITHUB_OUTPUT
 
       - name: Restore and build
-        if: steps.release.outputs.version != ''
+        if: steps.release-version.outputs.value != ''
         shell: pwsh
         run: |
           dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}"
-          dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}" -p:Version="${{ steps.release.outputs.version }}"
+          dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}" -p:Version="${{ steps.release-version.outputs.value }}"
 
       - name: Prepare Workshop content
-        if: steps.release.outputs.version != ''
+        if: steps.release-version.outputs.value != ''
         shell: pwsh
         run: |
           $content = Join-Path $env:RUNNER_TEMP 'workshop-content'
@@ -90,7 +98,7 @@ jobs:
           Set-Content -LiteralPath 'Steam\\workshop.vdf' -Value $vdf -NoNewline
 
       - name: Publish Workshop update
-        if: steps.release.outputs.version != ''
+        if: steps.release-version.outputs.value != ''
         shell: pwsh
         run: |
           & '${{ steps.steamcmd.outputs.executable }}' +login "$env:STEAM_USERNAME" +workshop_build_item "$env:GITHUB_WORKSPACE\\Steam\\workshop.vdf" +quit
