@@ -9,6 +9,7 @@ namespace CustomizableEnergy {
 	public sealed class GeneratorOptionsEntry : IOptionsEntry {
 		private GeneratorOptionsValue value;
 		private GeneratorSetting[] orderedSettings;
+		private bool[] enabledStates;
 		private GameObject[] toggles;
 		private GameObject[] fields;
 
@@ -24,6 +25,7 @@ namespace CustomizableEnergy {
 			if (value == null)
 				ReadFrom(EnergyOptions.Instance);
 			orderedSettings = value.Generators.OrderBy(setting => setting.BuildingId, StringComparer.Ordinal).ToArray();
+			enabledStates = orderedSettings.Select(setting => setting.EnableOverwrite).ToArray();
 			toggles = new GameObject[orderedSettings.Length];
 			fields = new GameObject[orderedSettings.Length];
 			parent.AddColumn(new GridColumnSpec(flex: 1.0f)).AddColumn(new GridColumnSpec()).AddColumn(new GridColumnSpec());
@@ -32,7 +34,7 @@ namespace CustomizableEnergy {
 				var setting = orderedSettings[index];
 				parent.AddRow(new GridRowSpec());
 				parent.AddChild(new PLabel { Text = setting.BuildingId, TextStyle = PUITuning.Fonts.TextLightStyle }, new GridComponentSpec(row, 0) { Alignment = TextAnchor.MiddleLeft });
-				var toggle = new PButton { Text = setting.EnableOverwrite ? "ON" : "OFF", ToolTip = "Enable overwrite", Color = setting.EnableOverwrite ? PUITuning.Colors.ButtonPinkStyle : PUITuning.Colors.ButtonBlueStyle, OnClick = realized => { setting.EnableOverwrite = !setting.EnableOverwrite; var label = realized.GetComponentInChildren<TextMeshProUGUI>(); if (label != null) label.text = setting.EnableOverwrite ? "ON" : "OFF"; } }.AddOnRealize(realized => toggles[index] = realized);
+				var toggle = new PButton { Text = enabledStates[index] ? "ON" : "OFF", ToolTip = "Enable overwrite", Color = enabledStates[index] ? PUITuning.Colors.ButtonPinkStyle : PUITuning.Colors.ButtonBlueStyle, OnClick = realized => { enabledStates[index] = !enabledStates[index]; var label = realized.GetComponentInChildren<TextMeshProUGUI>(); if (label != null) label.text = enabledStates[index] ? "ON" : "OFF"; } }.AddOnRealize(realized => toggles[index] = realized);
 				parent.AddChild(toggle, new GridComponentSpec(row, 1) { Alignment = TextAnchor.MiddleCenter });
 				var field = new PTextField { Text = Clamp(setting.Wattage).ToString("0"), Type = PTextField.FieldType.Integer, MinWidth = 72, MaxLength = 6, ToolTip = "Output wattage", OnTextChanged = (_, text) => { if (int.TryParse(text, out var wattage)) setting.Wattage = Clamp(wattage); } }.AddOnRealize(realized => fields[index] = realized);
 				parent.AddChild(field, new GridComponentSpec(row, 2) { Alignment = TextAnchor.MiddleRight });
@@ -47,10 +49,11 @@ namespace CustomizableEnergy {
 			value.Generators = discovered.Select(definition => existing.TryGetValue(definition.PrefabID, out var setting) ? setting : new GeneratorSetting { BuildingId = definition.PrefabID, Wattage = GeneratorDiscovery.OriginalWattages[definition.PrefabID] }).ToArray();
 			if (orderedSettings != null && toggles != null && fields != null) {
 				orderedSettings = value.Generators.OrderBy(setting => setting.BuildingId, StringComparer.Ordinal).ToArray();
+				enabledStates = orderedSettings.Select(setting => setting.EnableOverwrite).ToArray();
 				for (var i = 0; i < orderedSettings.Length && i < toggles.Length && i < fields.Length; i++) {
 					var buttonLabel = toggles[i]?.GetComponentInChildren<TextMeshProUGUI>();
 					if (buttonLabel != null)
-						buttonLabel.text = orderedSettings[i].EnableOverwrite ? "ON" : "OFF";
+						buttonLabel.text = enabledStates[i] ? "ON" : "OFF";
 					var input = fields[i]?.GetComponentInChildren<TMP_InputField>();
 					if (input != null)
 						input.text = Clamp(orderedSettings[i].Wattage).ToString("0");
@@ -62,6 +65,7 @@ namespace CustomizableEnergy {
 			if (!(settings is EnergyOptions options) || orderedSettings == null)
 				return false;
 			for (var i = 0; i < orderedSettings.Length; i++) {
+				orderedSettings[i].EnableOverwrite = enabledStates[i];
 				var input = fields[i].GetComponentInChildren<TMP_InputField>();
 				if (input != null && int.TryParse(input.text, out var wattage))
 					orderedSettings[i].Wattage = Clamp(wattage);

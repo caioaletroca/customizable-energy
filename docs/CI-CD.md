@@ -29,7 +29,7 @@ If no commit requires a version bump, no release artifact is created.
 
 ## Publishing to Steam Workshop
 
-Steam Workshop publication is manual because ONI uses Klei's legacy single-file Workshop format. Generic SteamCMD `workshop_build_item` uploads are not compatible with ONI's importer.
+Steam Workshop publication for item `3799755674` is manual because ONI uses Klei's legacy single-file Workshop format. Generic SteamCMD `workshop_build_item` uploads are not compatible with ONI's importer.
 
 For each release:
 

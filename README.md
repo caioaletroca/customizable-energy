@@ -2,6 +2,8 @@
 
 Configure the output power of Oxygen Not Included generators.
 
+[Subscribe on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3799755674)
+
 ## Features
 
 - Discovers compatible base-game, DLC, and mod-added generators automatically.
