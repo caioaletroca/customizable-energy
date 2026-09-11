@@ -1,0 +1,10 @@
+"workshopitem"
+{
+    "appid" "457140"
+    "publishedfileid" "${WORKSHOP_ITEM_ID}"
+    "contentfolder" "${CONTENT_PATH}"
+    "previewfile" "${PREVIEW_PATH}"
+    "visibility" "0"
+    "title" "Customizable Energy"
+    "description" "Configure the output power of Oxygen Not Included generators."
+}

@@ -1,0 +1,96 @@
+name: Publish Steam Workshop
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    env:
+      STEAM_WORKSHOP_ITEM_ID: ${{ vars.STEAM_WORKSHOP_ITEM_ID }}
+      STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+      STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Resolve release version
+        id: version
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.event_name }}' -eq 'push') { '${{ github.ref_name }}'.TrimStart('v') } else { '${{ inputs.version }}' }
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'A release version is required.' }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Validate publishing configuration
+        shell: pwsh
+        run: |
+          foreach ($name in 'STEAM_WORKSHOP_ITEM_ID','STEAM_USERNAME','STEAM_CONFIG_VDF') {
+            if ([string]::IsNullOrWhiteSpace((Get-Item "Env:$name").Value)) { throw "$name is not configured." }
+          }
+          if ($env:STEAM_WORKSHOP_ITEM_ID -notmatch '^\d+$' -or $env:STEAM_WORKSHOP_ITEM_ID -eq '0') {
+            throw 'Set STEAM_WORKSHOP_ITEM_ID to the published Steam Workshop item ID.'
+          }
+
+      - uses: andriivitiv/setup-steamcmd@v1
+
+      - name: Download ONI assemblies
+        id: oni
+        shell: pwsh
+        run: |
+          $steamConfig = Join-Path $HOME 'Steam\\config'
+          New-Item -ItemType Directory -Path $steamConfig -Force | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $steamConfig 'config.vdf'), [Convert]::FromBase64String($env:STEAM_CONFIG_VDF))
+          $oni = Join-Path $env:RUNNER_TEMP 'oni'
+          steamcmd +login "$env:STEAM_USERNAME" +force_install_dir "$oni" +app_update 457140 validate +quit
+          $managed = Join-Path $oni 'OxygenNotIncluded_Data\\Managed'
+          if (-not (Test-Path -LiteralPath (Join-Path $managed 'Assembly-CSharp.dll'))) { throw 'SteamCMD did not install ONI managed assemblies.' }
+          "path=$managed" >> $env:GITHUB_OUTPUT
+
+      - name: Restore and build
+        shell: pwsh
+        run: |
+          dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}"
+          dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:Version="${{ steps.version.outputs.value }}"
+
+      - name: Prepare Workshop content
+        shell: pwsh
+        run: |
+          $content = Join-Path $env:RUNNER_TEMP 'workshop-content'
+          New-Item -ItemType Directory -Path $content -Force | Out-Null
+          Copy-Item 'bin\\Release\\netstandard2.1\\CustomizableEnergy.dll' $content
+          Copy-Item 'mod.yaml','mod_info.yaml','README.md' $content
+          Copy-Item 'third_party\\ONIMods\\PLibCore\\bin\\Release\\netstandard2.1\\PLibCore.dll' $content
+          Copy-Item 'third_party\\ONIMods\\PLibUI\\bin\\Release\\netstandard2.1\\PLibUI.dll' $content
+          Copy-Item 'third_party\\ONIMods\\PLibOptions\\bin\\Release\\netstandard2.1\\PLibOptions.dll' $content
+          $vdf = Get-Content 'Steam\\workshop.vdf.template' -Raw
+          $vdf = $vdf.Replace('${CONTENT_PATH}', $content.Replace('\\', '/')).Replace('${PREVIEW_PATH}', (Join-Path $env:GITHUB_WORKSPACE 'Steam\\preview.png').Replace('\\', '/')).Replace('${WORKSHOP_ITEM_ID}', $env:STEAM_WORKSHOP_ITEM_ID)
+          Set-Content -LiteralPath 'Steam\\workshop.vdf' -Value $vdf -NoNewline
+
+      - name: Publish Workshop update
+        shell: pwsh
+        run: steamcmd +login "$env:STEAM_USERNAME" +workshop_build_item "$env:GITHUB_WORKSPACE\\Steam\\workshop.vdf" +quit
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "v${{ steps.version.outputs.value }}"
+          gh release create $tag --generate-notes --verify-tag

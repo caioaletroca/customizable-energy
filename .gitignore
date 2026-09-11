@@ -13,3 +13,5 @@ src/**/config.json
 *.pdb
 
 .rigor/
+
+Steam/workshop.vdf

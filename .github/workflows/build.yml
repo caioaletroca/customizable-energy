@@ -1,0 +1,65 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+      STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: andriivitiv/setup-steamcmd@v1
+
+      - name: Download ONI assemblies
+        shell: pwsh
+        run: |
+          $steamConfig = Join-Path $HOME 'Steam\\config'
+          New-Item -ItemType Directory -Path $steamConfig -Force | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $steamConfig 'config.vdf'), [Convert]::FromBase64String($env:STEAM_CONFIG_VDF))
+          $oni = Join-Path $env:RUNNER_TEMP 'oni'
+          steamcmd +login "$env:STEAM_USERNAME" +force_install_dir "$oni" +app_update 457140 validate +quit
+          $managed = Join-Path $oni 'OxygenNotIncluded_Data\\Managed'
+          if (-not (Test-Path -LiteralPath (Join-Path $managed 'Assembly-CSharp.dll'))) { throw 'SteamCMD did not install ONI managed assemblies.' }
+          "path=$managed" >> $env:GITHUB_OUTPUT
+        id: oni
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}"
+
+      - name: Build release artifact
+        shell: pwsh
+        run: dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}"
+
+      - name: Package local mod
+        shell: pwsh
+        run: |
+          $staging = Join-Path $env:RUNNER_TEMP 'CustomizableEnergy'
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          Copy-Item 'bin\\Release\\netstandard2.1\\CustomizableEnergy.dll' $staging
+          Copy-Item 'mod.yaml','mod_info.yaml','README.md' $staging
+          Copy-Item 'third_party\\ONIMods\\PLibCore\\bin\\Release\\netstandard2.1\\PLibCore.dll' $staging
+          Copy-Item 'third_party\\ONIMods\\PLibUI\\bin\\Release\\netstandard2.1\\PLibUI.dll' $staging
+          Copy-Item 'third_party\\ONIMods\\PLibOptions\\bin\\Release\\netstandard2.1\\PLibOptions.dll' $staging
+          Compress-Archive -Path "$staging\\*" -DestinationPath 'CustomizableEnergy.zip' -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CustomizableEnergy
+          path: CustomizableEnergy.zip
+          if-no-files-found: error
