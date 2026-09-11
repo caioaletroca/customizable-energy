@@ -14,5 +14,4 @@ src/**/config.json
 
 .rigor/
 
-Steam/workshop.vdf
 .semantic-release-version

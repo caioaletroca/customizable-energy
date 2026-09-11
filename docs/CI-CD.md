@@ -1,33 +1,45 @@
 # CI/CD and Steam Workshop publishing
 
-## GitHub-hosted runners
+## GitHub-hosted release pipeline
 
-The workflows run on GitHub-hosted `windows-latest` runners. They use SteamCMD to download Oxygen Not Included into the temporary runner workspace, then compile the mod against the downloaded Managed assemblies. No self-hosted runner, local ONI path, or runner labels are required.
+The workflows run on GitHub-hosted `windows-latest` runners. SteamCMD downloads Oxygen Not Included into the temporary runner workspace so the mod can compile against the current Managed assemblies.
 
-Because Steam credentials are required to download ONI, the build and release workflows run on pushes to `main` and manual dispatch only. Pull requests do not run the credentialed build.
+Configure these repository secrets:
 
-Configure these repository values and secrets:
+| Secret | Purpose |
+|---|---|
+| `STEAM_USERNAME` | Steam account name used to download ONI through SteamCMD. |
+| `STEAM_CONFIG_VDF` | Base64-encoded authenticated SteamCMD `config.vdf`. |
 
-| Type | Name | Purpose |
-|---|---|---|
-| Variable | `STEAM_WORKSHOP_ITEM_ID` | Steam Workshop item ID: `3799490472`. |
-| Secret | `STEAM_USERNAME` | Steam account name used by SteamCMD. |
-| Secret | `STEAM_CONFIG_VDF` | Base64-encoded authenticated SteamCMD `config.vdf`. |
+`STEAM_WORKSHOP_ITEM_ID` is no longer used by CI because ONI Workshop publishing requires Klei's official uploader.
 
 ## Build workflow
 
-`.github/workflows/build.yml` runs for pushes to `main` and manual dispatch. It downloads ONI, restores/builds the mod, and uploads a ZIP artifact containing the mod DLL, metadata, README, and required PLib DLLs.
+`.github/workflows/build.yml` runs for pushes to `main` and manual dispatch. It downloads ONI, builds the mod, and uploads a test artifact.
 
-## Semantic releases and Workshop publishing
+## Semantic release workflow
 
-`.github/workflows/publish.yml` runs on pushes to `main`. Semantic-release reads Conventional Commit messages, chooses the next version, updates `mod_info.yaml`, creates the GitHub release, and then updates Workshop item `3799490472` in the same workflow.
+`.github/workflows/publish.yml` runs on pushes to `main`. Semantic-release reads Conventional Commit messages, chooses the next version, updates `mod_info.yaml`, creates the GitHub release, builds the mod, and attaches an ONI Uploader-ready ZIP.
 
 - `feat`: minor release
 - `fix`, `perf`, `refactor`, or `ci`: patch release
 - A breaking-change footer: major release
 
-The workflow uses the default GitHub Actions token because semantic-release and Steam publishing occur in one job. No separate GitHub PAT is required.
+If no commit requires a version bump, no release artifact is created.
 
-If no commit since the prior release requires a version bump, semantic-release finishes without publishing to Steam.
+## Publishing to Steam Workshop
 
-Do not commit Steam credentials or the rendered `Steam/workshop.vdf` file.
+Steam Workshop publication is manual because ONI uses Klei's legacy single-file Workshop format. Generic SteamCMD `workshop_build_item` uploads are not compatible with ONI's importer.
+
+For each release:
+
+1. Download `CustomizableEnergy-vX.Y.Z.zip` from the GitHub release.
+2. Extract it to an empty folder.
+3. Open **Oxygen Not Included Uploader** from the Steam Library tools.
+4. Select the extracted folder.
+5. Select the existing Customizable Energy Workshop item, or create a new item if replacing an incompatible item.
+6. Use `Steam/preview.png` as the preview image.
+7. Publish the update.
+8. Subscribe/download and perform an ONI smoke test.
+
+Do not upload the GitHub ZIP directly unless the uploader explicitly asks for an archive; it normally expects the extracted mod folder.

@@ -1,23 +1,17 @@
-name: Publish Steam Workshop
+name: Release
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: Existing version to publish without creating a new release
-        required: true
-        type: string
 
 permissions:
   contents: write
 
 jobs:
-  publish:
+  release:
     runs-on: windows-latest
     env:
-      STEAM_WORKSHOP_ITEM_ID: ${{ vars.STEAM_WORKSHOP_ITEM_ID }}
       STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
       STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
     steps:
@@ -39,7 +33,6 @@ jobs:
 
       - name: Create semantic release
         id: release
-        if: github.event_name != 'workflow_dispatch'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: npx semantic-release
@@ -48,20 +41,8 @@ jobs:
         id: release-version
         shell: pwsh
         run: |
-          $version = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } elseif (Test-Path -LiteralPath '.semantic-release-version') { Get-Content -LiteralPath '.semantic-release-version' -Raw }
-          if (-not [string]::IsNullOrWhiteSpace($version)) {
-            "value=$version" >> $env:GITHUB_OUTPUT
-          }
-
-      - name: Validate publishing configuration
-        if: steps.release-version.outputs.value != ''
-        shell: pwsh
-        run: |
-          foreach ($name in 'STEAM_WORKSHOP_ITEM_ID','STEAM_USERNAME','STEAM_CONFIG_VDF') {
-            if ([string]::IsNullOrWhiteSpace((Get-Item "Env:$name").Value)) { throw "$name is not configured." }
-          }
-          if ($env:STEAM_WORKSHOP_ITEM_ID -notmatch '^\d+$' -or $env:STEAM_WORKSHOP_ITEM_ID -eq '0') {
-            throw 'Set STEAM_WORKSHOP_ITEM_ID to the published Steam Workshop item ID.'
+          if (Test-Path -LiteralPath '.semantic-release-version') {
+            "value=$(Get-Content -LiteralPath '.semantic-release-version' -Raw)" >> $env:GITHUB_OUTPUT
           }
 
       - uses: andriivitiv/setup-steamcmd@v1
@@ -78,40 +59,33 @@ jobs:
           [IO.File]::WriteAllBytes((Join-Path $steamConfig 'config.vdf'), [Convert]::FromBase64String($env:STEAM_CONFIG_VDF))
           $oni = Join-Path $env:RUNNER_TEMP 'oni'
           & '${{ steps.steamcmd.outputs.executable }}' +login "$env:STEAM_USERNAME" +force_install_dir "$oni" +app_update 457140 validate +quit
-          $managed = Join-Path $oni 'OxygenNotIncluded_Data\\Managed'
+          $managed = Join-Path $oni 'OxygenNotIncluded_Data\Managed'
           if (-not (Test-Path -LiteralPath (Join-Path $managed 'Assembly-CSharp.dll'))) { throw 'SteamCMD did not install ONI managed assemblies.' }
           "path=$managed" >> $env:GITHUB_OUTPUT
 
-      - name: Restore and build
+      - name: Build release
         if: steps.release-version.outputs.value != ''
         shell: pwsh
         run: |
           dotnet restore CustomizableEnergy.csproj -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}"
           dotnet build CustomizableEnergy.csproj --configuration Release --no-restore -p:GameManagedPath="${{ steps.oni.outputs.path }}" -p:GameFolder="${{ steps.oni.outputs.path }}" -p:Version="${{ steps.release-version.outputs.value }}"
 
-      - name: Prepare Workshop content
+      - name: Package ONI Uploader artifact
         if: steps.release-version.outputs.value != ''
         shell: pwsh
         run: |
-          $content = Join-Path $env:RUNNER_TEMP 'workshop-content'
-          $package = Join-Path $content "$(Get-Date -Format 'yyyyMMddHHmmss')_legacy.bin"
-          $staging = Join-Path $env:RUNNER_TEMP 'workshop-staging'
-          New-Item -ItemType Directory -Path $content,$staging -Force | Out-Null
-          Copy-Item 'bin\\Release\\netstandard2.1\\CustomizableEnergy.dll' $staging
+          $staging = Join-Path $env:RUNNER_TEMP 'CustomizableEnergy'
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          Copy-Item 'bin\Release\netstandard2.1\CustomizableEnergy.dll' $staging
           Copy-Item 'mod.yaml','mod_info.yaml','README.md' $staging
-          Copy-Item 'third_party\\ONIMods\\PLibCore\\bin\\Release\\netstandard2.1\\PLibCore.dll' $staging
-          Copy-Item 'third_party\\ONIMods\\PLibUI\\bin\\Release\\netstandard2.1\\PLibUI.dll' $staging
-          Copy-Item 'third_party\\ONIMods\\PLibOptions\\bin\\Release\\netstandard2.1\\PLibOptions.dll' $staging
-          $zip = "$package.zip"
-          Compress-Archive -Path "$staging\\*" -DestinationPath $zip -Force
-          Move-Item -LiteralPath $zip -Destination $package -Force
-          $vdf = Get-Content 'Steam\\workshop.vdf.template' -Raw
-          $vdf = $vdf.Replace('${CONTENT_PATH}', $package.Replace('\\', '/')).Replace('${PREVIEW_PATH}', (Join-Path $env:GITHUB_WORKSPACE 'Steam\\preview.png').Replace('\\', '/')).Replace('${WORKSHOP_ITEM_ID}', $env:STEAM_WORKSHOP_ITEM_ID)
-          Set-Content -LiteralPath 'Steam\\workshop.vdf' -Value $vdf -NoNewline
+          Copy-Item 'third_party\ONIMods\PLibCore\bin\Release\netstandard2.1\PLibCore.dll' $staging
+          Copy-Item 'third_party\ONIMods\PLibUI\bin\Release\netstandard2.1\PLibUI.dll' $staging
+          Copy-Item 'third_party\ONIMods\PLibOptions\bin\Release\netstandard2.1\PLibOptions.dll' $staging
+          Compress-Archive -Path "$staging\*" -DestinationPath "CustomizableEnergy-v${{ steps.release-version.outputs.value }}.zip" -Force
 
-      - name: Publish Workshop update
+      - name: Upload release artifact
         if: steps.release-version.outputs.value != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: pwsh
-        run: |
-          & '${{ steps.steamcmd.outputs.executable }}' +login "$env:STEAM_USERNAME" +workshop_build_item "$env:GITHUB_WORKSPACE\\Steam\\workshop.vdf" +quit
-
+        run: gh release upload "v${{ steps.release-version.outputs.value }}" "CustomizableEnergy-v${{ steps.release-version.outputs.value }}.zip" --clobber
