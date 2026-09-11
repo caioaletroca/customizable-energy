@@ -24,15 +24,16 @@ jobs:
           dotnet-version: 8.0.x
 
       - uses: andriivitiv/setup-steamcmd@v1
+        id: steamcmd
 
       - name: Download ONI assemblies
         shell: pwsh
         run: |
-          $steamConfig = Join-Path $HOME 'Steam\\config'
+          $steamConfig = Join-Path '${{ steps.steamcmd.outputs.directory }}' 'config'
           New-Item -ItemType Directory -Path $steamConfig -Force | Out-Null
           [IO.File]::WriteAllBytes((Join-Path $steamConfig 'config.vdf'), [Convert]::FromBase64String($env:STEAM_CONFIG_VDF))
           $oni = Join-Path $env:RUNNER_TEMP 'oni'
-          steamcmd +login "$env:STEAM_USERNAME" +force_install_dir "$oni" +app_update 457140 validate +quit
+          & '${{ steps.steamcmd.outputs.executable }}' +login "$env:STEAM_USERNAME" +force_install_dir "$oni" +app_update 457140 validate +quit
           $managed = Join-Path $oni 'OxygenNotIncluded_Data\\Managed'
           if (-not (Test-Path -LiteralPath (Join-Path $managed 'Assembly-CSharp.dll'))) { throw 'SteamCMD did not install ONI managed assemblies.' }
           "path=$managed" >> $env:GITHUB_OUTPUT
